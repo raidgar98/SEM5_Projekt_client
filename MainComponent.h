@@ -1,11 +1,3 @@
-/*
-  ==============================================================================
-
-    This file was auto-generated!
-
-  ==============================================================================
-*/
-
 #pragma once
 
 #include <assert.h>
@@ -15,6 +7,7 @@
 
 #include "IPTable.h"
 #include "TimerTextBox.h"
+#include "settings.hpp"
 
 //#include "../JuceLibraryCode/JuceHeader.h"
 
@@ -34,19 +27,12 @@ constexpr int default_height = 20;
 #define progress_bar(x) double GLUER(x,Valu,e){ 0.0 }; std::mutex GLUER(x, Lc, k); ProgressBar x{ GLUER(x,Valu,e),  GLUER(x, Lc, k) }
 #define text_box(x) String GLUER(x,Valu,e){ 0.0 }; std::mutex GLUER(x, Lc, k); TimerTextBox x{ GLUER(x,Valu,e),  GLUER(x, Lc, k) }
 
-//==============================================================================
-/*
-    This component lives inside our window, and this is where you should put all
-    your controls and content.
-*/
 class MainComponent   : public Component
 {
 public:
-    //==============================================================================
+
     MainComponent();
     ~MainComponent();
-
-    //==============================================================================
 
 	int add_std_label(const std::wstring& caption, int pos_x, int pos_y, int width = -1, int height = -1);
 	void configure_txt_editor(TextEditor& src, const int idx, const std::wstring& txt);
@@ -67,7 +53,7 @@ public:
 	std::mutex global_run;
 	
 	//Specify
-	TableDemoComponent tbl;
+	std::unique_ptr<TableDemoComponent> tbl;
 	std::vector<str> addresses;
 	std::mutex mtx_addresses;
 

@@ -1,26 +1,19 @@
-﻿/*
-  ==============================================================================
-
-	This file was auto-generated!
-
-  ==============================================================================
-*/
-
-#include "MainComponent.h"
+﻿#include "AddHostnameDialog.h"
 #include "SpecifyRefresher.h"
 #include "GlobalRefresher.h"
-#include "AddHostnameDialog.h"
 
 #include <future>
 #include <chrono>
 #include <ctime>
 #include <Windows.h>
+#include <Shlobj.h>
+#include <shlwapi.h>
 
 #include <cpprest/http_client.h>
 #include <cpprest/filestream.h>
 
+#include "MainComponent.h"
 
-//==============================================================================
 MainComponent::MainComponent()
 {
 	setSize(window_width, window_height);
@@ -38,23 +31,47 @@ MainComponent::MainComponent()
 	addAndMakeVisible(globalRAM);
 	addAndMakeVisible(globalDisk);
 
+	//Loading Config
+	LPWSTR szPath = new wchar_t[MAX_PATH];
+	if (SHGetFolderPathW(NULL, CSIDL_PERSONAL, NULL, 0, szPath) != S_OK)
+	{
+		const auto e = GetLastError();
+		std::cout << e;
+	}
+	PathAppendW(szPath, L"hosts.json");
+	std::wstring path{ szPath };
+	delete[] szPath;
+	szPath = nullptr;
+	std::wifstream input{ path };
+	assert(input.good());
+	str whole{ L"" }, line{ L"" };
+	while (std::getline(input, line))
+		whole.append(line);
+	input.close();
+	json::value settings = json::value::parse(whole);
+
+	settings::api_port = settings[L"api_port"].as_string();
+	settings::download_directory = settings[L"download_path"].as_string();
+	settings::fport = settings[L"file_port"].as_string();
+
 	//Table config
-	tbl.table.setBounds(
+	tbl.reset(new TableDemoComponent(settings));
+	tbl->table.setBounds(
 		margin_left,
 		margin_top + Y(globalDisk) + height(globalDisk) + margin_top,
 		0.2 * window_width,
 		window_height - Y(globalDisk) - ( 4 * margin_top ) - ( 2 * default_height )
 	);
-	tbl.on_selected_row_changed = [&](int row) { if(row >=0 ) update_specific(tbl[row].addres); };
-	addAndMakeVisible(tbl.table);
+	tbl->on_selected_row_changed = [&](int row) { if(row >=0 ) update_specific((*tbl)[row].addres); };
+	addAndMakeVisible(tbl->table);
 
 	//Setting up global refresher
-	for (int i = 0; i < tbl.getNumRows(); i++)
-		addresses.push_back(tbl[i].addres);
-	if (tbl.data.size() > 0) global_refresher.reset(new std::thread(GlobalRefresher(this)));
+	for (int i = 0; i < tbl->getNumRows(); i++)
+		addresses.push_back((*tbl)[i].addres);
+	if (tbl->data.size() > 0) global_refresher.reset(new std::thread(GlobalRefresher(this)));
 
-	const int alt_left_margin = margin_left + X(tbl.table) + width(tbl.table);
-	const int alt_top_margin = margin_top + Y(tbl.table);
+	const int alt_left_margin = margin_left + X(tbl->table) + width(tbl->table);
+	const int alt_top_margin = margin_top + Y(tbl->table);
 
 	//Specify Labels
 	const int s_model_proc = add_std_label(L"Model Procesora:", alt_left_margin, alt_top_margin);
@@ -105,22 +122,22 @@ MainComponent::MainComponent()
 		default_height
 	);
 	addAndMakeVisible(specDisks);
-
+	#pragma warning("##################### TODO: make methode for rebuilding #################")
 	//Address Buttons
 	rem_address.onClick = [&]()
 	{
-		int selected = tbl.table.getSelectedRow();
+		int selected = tbl->table.getSelectedRow();
 		if (selected == -1) return;
-		auto it = tbl.data.begin();
+		auto it = tbl->data.begin();
 		for (int i = 0; i < selected; i++)
 			it++;
-		tbl.data.erase(it);
+		tbl->data.erase(it);
 
 		system(R"(ERASE C:\Users\raidg\Documents\hosts.json)");
 		json::value serial = json::value::object();
 		std::vector<json::value> vec;
-		vec.reserve(tbl.data.size());
-		for (const TableDemoComponent::hostname& var : tbl.data)
+		vec.reserve(tbl->data.size());
+		for (const TableDemoComponent::hostname& var : tbl->data)
 		{
 			json::value tmp = json::value::object();
 			tmp[L"name"] = json::value::string(var.name);
@@ -148,11 +165,11 @@ MainComponent::MainComponent()
 			specify_refresher.reset(nullptr);
 		}
 
-		if (tbl.data.size() > 0) global_refresher.reset(new std::thread(GlobalRefresher(this)));
-		tbl.table.selectRow(-1);
-		tbl.table.updateContent();
+		if (tbl->data.size() > 0) global_refresher.reset(new std::thread(GlobalRefresher(this)));
+		tbl->table.selectRow(-1);
+		tbl->table.updateContent();
 	};
-	rem_address.setBounds(X(tbl.table), Y(tbl.table) + height(tbl.table) + margin_top, ( width(tbl.table) / 2 ) * 0.8, default_height);
+	rem_address.setBounds(X(tbl->table), Y(tbl->table) + height(tbl->table) + margin_top, ( width(tbl->table) / 2 ) * 0.8, default_height);
 	rem_address.setButtonText(L"Usuń");
 	addAndMakeVisible(rem_address);
 
@@ -161,13 +178,13 @@ MainComponent::MainComponent()
 		AddHostnameDialog dial;
 		if (dial.add == L"" || dial.hn == L"") return;
 
-		tbl.add({ dial.hn, dial.add });
+		tbl->add({ dial.hn, dial.add });
 		
 		system(R"(ERASE C:\Users\raidg\Documents\hosts.json)");
 		json::value serial = json::value::object();
 		std::vector<json::value> vec;
-		vec.reserve(tbl.data.size());
-		for (const TableDemoComponent::hostname& var : tbl.data)
+		vec.reserve(tbl->data.size());
+		for (const TableDemoComponent::hostname& var : tbl->data)
 		{
 			json::value tmp = json::value::object();
 			tmp[L"name"] = json::value::string(var.name);
@@ -180,7 +197,7 @@ MainComponent::MainComponent()
 		out << serial.serialize();
 		out.close();
 
-		tbl.table.updateContent();
+		tbl->table.updateContent();
 
 		if (global_refresher.get() != nullptr)
 		{
@@ -198,11 +215,11 @@ MainComponent::MainComponent()
 		}
 
 		global_refresher.reset(new std::thread(GlobalRefresher(this)));
-		tbl.table.selectRow(-1);
-		tbl.table.updateContent();
+		tbl->table.selectRow(-1);
+		tbl->table.updateContent();
 
 	};
-	add_address.setBounds(X(rem_address) + width(rem_address) + 5, Y(tbl.table) + height(tbl.table) + margin_top, width(rem_address), default_height);
+	add_address.setBounds(X(rem_address) + width(rem_address) + 5, Y(tbl->table) + height(tbl->table) + margin_top, width(rem_address), default_height);
 	add_address.setButtonText(L"Dodaj");
 	addAndMakeVisible(add_address);
 
@@ -216,24 +233,30 @@ MainComponent::MainComponent()
 		for (const auto var : s)
 			w += static_cast<wchar_t>(var);
 
-		std::string x = R"(C:\Users\raidg\Downloads\Pobrane_Raporty\)";
-		x += s;
-		LPCSTR t = x.c_str();
-		CreateDirectoryA(t, NULL);
+		str dir = download_directory + L"/";
+		dir += w;
+		if (!CreateDirectoryW(dir.c_str(), NULL))
+		{
+			if (GetLastError() != ERROR_ALREADY_EXISTS)
+			{
+				MessageBoxW(NULL, L"Brak dostępu do ustawionego folderu zapisu", L"Bląd", MB_ICONHAND);
+				return;
+			}
+		}
 
-		for (const auto& var : tbl.data)
+		for (const auto& var : tbl->data)
 			std::async(std::launch::async, [&](const TableDemoComponent::hostname& address, const std::wstring& dirname)
 				{
-					client::http_client client{ L"http://" + address.addres + L":9000/file/raport" };
+					client::http_client client{ api_protocol + address.addres + L":" + fport + L"/file/raport" };
 					http_response res;
 					try { res = client.request(methods::GET).get(); }
-					catch (const http_exception& e)
+					catch (const http_exception & e)
 					{
 						throw;
 					}
 					Concurrency::streams::ostream fileStream;
 					std::wstringstream path_to_create;
-					path_to_create << dirname << L"\\" << address.name << L".xlsx";
+					path_to_create << dirname << L"/" << address.name << L".xlsx";
 					auto t = path_to_create.str();
 					std::wstring path;
 					for (const auto& var : t)
@@ -246,19 +269,19 @@ MainComponent::MainComponent()
 					int ret = 1;
 					while (ret > 0)
 						try { ret = res.body().read_to_end(fileStream.streambuf()).get(); }
-					catch (const std::exception & e)
+					catch (const http_exception & e)
 					{
 						throw;
 					}
 					fileStream.close();
-			}, var, LR"(C:\Users\raidg\Downloads\Pobrane_Raporty\)" + w);
+				}, var, dir);
 	};
 	sync_files.setBounds(
 		X(add_address) + width(add_address) + 5,
-		Y(tbl.table) + height(tbl.table) + margin_top,
-		width(tbl.table) - (width(add_address) + width(rem_address) + 10),
+		Y(tbl->table) + height(tbl->table) + margin_top,
+		width(tbl->table) - (width(add_address) + width(rem_address) + 10),
 		default_height);
-	sync_files.setButtonText(L"O");
+	sync_files.setButtonText(L"↺"); //'O' like two circle arrows from sync icon. Whooosh! imagination
 	addAndMakeVisible(sync_files);
 }
 
@@ -271,6 +294,7 @@ MainComponent::~MainComponent()
 		global_run.unlock();
 		global_refresher.reset(nullptr);
 	}
+
 	if(specify_refresher.get() != nullptr)
 	{
 		while (!specify_run.try_lock()) {}
@@ -323,4 +347,3 @@ void MainComponent::update_specific(const std::wstring& src)
 	specify_refresher.reset(new std::thread(SpecifyRefresher(this, src)));
 }
 
-//==============================================================================

@@ -1,9 +1,13 @@
 #pragma once
+
 #include "../JuceLibraryCode/JuceHeader.h"
+
 #include <fstream>
+#include <future>
+
 #include <cpprest/http_client.h>
 
-#include <future>
+#include "BasicRefresher.h"
 
 using namespace web;
 using namespace web::http;
@@ -16,9 +20,9 @@ class TableDemoComponent : public Component,
 {
 public:
 
-	TableDemoComponent()
+	TableDemoComponent(json::value& data)
 	{
-		loadData();
+		loadData(data);
 		addAndMakeVisible(table);
 		table.setModel(this);
 		table.setColour(ListBox::outlineColourId, Colours::grey);
@@ -99,7 +103,7 @@ public:
 
 	bool add(const hostname& src)
 	{
-		if (!online(L"http://" + src.addres + L":9001")) return false;
+		if (!online(api_protocol + src.addres + L":" + api_port)) return false;
 		data.emplace_back(src);
 		return true;
 	}
@@ -108,23 +112,14 @@ private:
 
 	Font font{ 14.0f };
 	
-	void loadData()
+	void loadData(json::value& dat)
 	{
-		using namespace web;
-		std::wifstream file{ R"(C:\Users\raidg\Documents\hosts.json)" };
-		str whole{ L"" };
-		str line;
-		while (std::getline(file, line))
-			whole += line;
-		file.close();
-		json::value dat = json::value::parse(whole);
-		const int length = dat[L"hostnames"].as_array().size();
-		data.reserve(length);
-		for (int i = 0; i < length; i++)
+		json::array arr = dat[L"hostnames"].as_array();
+		data.reserve(arr.size());
+		for(auto& tmp : arr)
 		{
-			json::value tmp = dat[L"hostnames"].as_array()[i];
 			const auto add = tmp[L"address"].as_string();
-			if (!online(L"http://" + add + L":9001")) continue;
+			if (!online(api_protocol + add + L":" + api_port)) continue;
 			else data.emplace_back(hostname(tmp[L"name"].as_string(), tmp[L"address"].as_string()));
 		}
 	}
