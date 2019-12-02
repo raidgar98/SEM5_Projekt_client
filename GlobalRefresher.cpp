@@ -45,37 +45,37 @@
 
 void GlobalRefresher::operator()()
 {
-	while (src->global_run.try_lock())
+	while (!src->global_run.test_and_set(std::memory_order_acquire))
 	{
-		src->global_run.unlock();
+		src->global_run.clear(std::memory_order_release);
 
-		if (src->global_run.try_lock())
+		if (!src->global_run.test_and_set(std::memory_order_acquire))
 		{
-			src->global_run.unlock();
+			src->global_run.clear(std::memory_order_release);
 
-			while (!src->globalDiskLck.try_lock()) {}
+			while (!src->globalDiskLck.test_and_set(std::memory_order_acquire)) {}
 			src->globalDiskValue = disk_usage();
-			src->globalDiskLck.unlock();
+			src->globalDiskLck.clear(std::memory_order_release);
 		}
 		else return;
 
-		if (src->global_run.try_lock())
+		if (!src->global_run.test_and_set(std::memory_order_acquire))
 		{
-			src->global_run.unlock();
+			src->global_run.clear(std::memory_order_release);
 
-			while (!src->globalProcessorLck.try_lock()) {}
+			while (!src->globalProcessorLck.test_and_set(std::memory_order_acquire)) {}
 			src->globalProcessorValue = processor_usage();
-			src->globalProcessorLck.unlock();
+			src->globalProcessorLck.clear(std::memory_order_release);
 		}
 		else return;
 
-		if (src->global_run.try_lock())
+		if (!src->global_run.test_and_set(std::memory_order_acquire))
 		{
-			src->global_run.unlock();
+			src->global_run.clear(std::memory_order_release);
 
-			while (!src->globalRAMLck.try_lock()) {}
+			while (!src->globalRAMLck.test_and_set(std::memory_order_acquire)) {}
 			src->globalRAMValue = memory_usage();
-			src->globalRAMLck.unlock();
+			src->globalRAMLck.clear(std::memory_order_release);
 		}
 		else return;
 

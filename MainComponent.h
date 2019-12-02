@@ -1,7 +1,6 @@
 #pragma once
 
 #include <assert.h>
-#include <mutex>
 #include <thread>
 #include <atomic>
 
@@ -24,8 +23,8 @@ constexpr int default_height = 20;
 #define X(x) x.getBounds().getX()
 
 #define GLUER(x,y, z) x##y##z
-#define progress_bar(x) double GLUER(x,Valu,e){ 0.0 }; std::mutex GLUER(x, Lc, k); ProgressBar x{ GLUER(x,Valu,e),  GLUER(x, Lc, k) }
-#define text_box(x) String GLUER(x,Valu,e){ 0.0 }; std::mutex GLUER(x, Lc, k); TimerTextBox x{ GLUER(x,Valu,e),  GLUER(x, Lc, k) }
+#define progress_bar(x) double GLUER(x,Valu,e){ 0.0 }; std::atomic_flag GLUER(x, Lc, k) = ATOMIC_FLAG_INIT; ProgressBar x{ GLUER(x,Valu,e),  GLUER(x, Lc, k) }
+#define text_box(x) String GLUER(x,Valu,e){ 0.0 }; std::atomic_flag GLUER(x, Lc, k) = ATOMIC_FLAG_INIT; TimerTextBox x{ GLUER(x,Valu,e),  GLUER(x, Lc, k) }
 
 class MainComponent   : public Component
 {
@@ -50,12 +49,12 @@ public:
 	progress_bar(globalDisk);
 
 	std::unique_ptr<std::thread> global_refresher{ nullptr };
-	std::mutex global_run;
+	std::atomic_flag global_run = ATOMIC_FLAG_INIT;
 	
 	//Specify
 	std::unique_ptr<TableDemoComponent> tbl;
 	std::vector<str> addresses;
-	std::mutex mtx_addresses;
+	std::atomic_flag mtx_addresses = ATOMIC_FLAG_INIT;
 
 	TextButton add_address;
 	TextButton rem_address;
@@ -75,7 +74,7 @@ public:
 	progress_bar(specDiskFree);
 
 	std::unique_ptr < std::thread > specify_refresher{ nullptr };
-	std::mutex specify_run;
+	std::atomic_flag specify_run = ATOMIC_FLAG_INIT;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };

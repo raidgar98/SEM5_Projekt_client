@@ -5,9 +5,9 @@
 BasicRefresher::BasicRefresher(MainComponent* i_src)
 	:src{i_src}
 {
-	while (!src->mtx_addresses.try_lock()) {}
+	while (!src->mtx_addresses.test_and_set(std::memory_order_acquire)) {}
 	address_pool = src->addresses;
-	src->mtx_addresses.unlock();
+	src->mtx_addresses.clear(std::memory_order_release);
 	i_src = nullptr;
 }
 

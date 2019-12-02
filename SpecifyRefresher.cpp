@@ -105,8 +105,8 @@ void SpecifyRefresher::operator()()
 
 	//System
 	chck_close(src->specOS.set_text(
-		get_api_str(L"/api/system/os_info", L"os_info").c_str())
-	);
+		get_api_str(L"/api/system/os_info", L"os_info").c_str()));
+
 	chck_close(src->specOSVersion.set_text(
 		get_api_version(L"/api/system/os_version", L"os").c_str())
 	);
@@ -118,9 +118,9 @@ void SpecifyRefresher::operator()()
 	//Little dangerous, can make program closing little bit longer if user close app instantly after machine change
 	const std::vector<int> disks{ get_api_array_num(L"/api/disk/disks", L"disks") };
 	int disk_idx = 0;
-	if (src->specify_run.try_lock())
+	if (!src->specify_run.test_and_set(std::memory_order_acquire))
 	{
-		src->specify_run.unlock();
+		src->specify_run.clear(std::memory_order_release);
 		src->specDisks.clear();
 		for (int i = 0; i < disks.size(); i++)
 		{
@@ -132,9 +132,9 @@ void SpecifyRefresher::operator()()
 	else return;
 
 	//Real-time
-	while (src->specify_run.try_lock())
+	while (!src->specify_run.test_and_set(std::memory_order_acquire))
 	{
-		src->specify_run.unlock();
+		src->specify_run.clear(std::memory_order_release);
 
 		//Disks
 		if (disk_idx != src->specDisks.getSelectedId())
@@ -142,9 +142,9 @@ void SpecifyRefresher::operator()()
 			disk_idx = src->specDisks.getSelectedId();
 			if (disk_idx == 0 || disk_idx < 0 || disk_idx >= disks.size())
 			{
-				while (!src->specDiskFreeLck.try_lock()) {}
+				while (!src->specDiskFreeLck.test_and_set(std::memory_order_acquire)) {}
 				src->specDiskFreeValue = get_api_real(L"/api/disk/space_total_free", L"space_total_free");
-				src->specDiskFreeLck.unlock();
+				src->specDiskFreeLck.clear(std::memory_order_release);
 				chck_close(src->specDiskCapacity.set_text(
 					get_api_SI(L"/api/disk/space_total", L"space_total").c_str()
 				));
@@ -152,9 +152,9 @@ void SpecifyRefresher::operator()()
 			else
 			{
 				//Get total space
-				if (src->specify_run.try_lock())
+				if (!src->specify_run.test_and_set(std::memory_order_acquire))
 				{
-					src->specify_run.unlock();
+					src->specify_run.clear(std::memory_order_release);
 					json::value data = json::value::object();
 					str w{ L"" };
 					w += wchar_t(disks[disk_idx - 1]);
@@ -166,18 +166,18 @@ void SpecifyRefresher::operator()()
 				else return;
 
 				//Get free space
-				if (src->specify_run.try_lock())
+				if (!src->specify_run.test_and_set(std::memory_order_acquire))
 				{
-					src->specify_run.unlock();
+					src->specify_run.clear(std::memory_order_release);
 					json::value data = json::value::object();
 					str w{ L"" };
 					w += wchar_t(disks[disk_idx - 1]);
 					data[L"letter"] = json::value::string(w);
 					try { POST_request(api_protocol + addr + L":" + api_port, L"/api/disk/space_free", data).wait(); }
 					catch (...) { data = json::value::object(); data[L"space_free"] = json::value::number(0.0); }
-					while (!src->specDiskFreeLck.try_lock()) {}
+					while (!src->specDiskFreeLck.test_and_set(std::memory_order_acquire)) {}
 					src->specDiskFreeValue = 1.0 - data[L"space_free"].as_double();
-					src->specDiskFreeLck.unlock();
+					src->specDiskFreeLck.clear(std::memory_order_release);
 				}
 				else return;
 
@@ -185,29 +185,29 @@ void SpecifyRefresher::operator()()
 		}
 
 		//Processor
-		if (src->specify_run.try_lock())
+		if (!src->specify_run.test_and_set(std::memory_order_acquire))
 		{
-			src->specify_run.unlock();
+			src->specify_run.clear(std::memory_order_release);
 			double ret = get_api_real(L"/api/cpu/usage", L"usage") / 100.0;
-			while (!src->specProcessorUsageLck.try_lock()) {}
+			while (!src->specProcessorUsageLck.test_and_set(std::memory_order_acquire)) {}
 			src->specProcessorUsageValue = ret;
-			src->specProcessorUsageLck.unlock();
+			src->specProcessorUsageLck.clear(std::memory_order_release);
 		}
 		else return;
 
 		//RAM
-		if (src->specify_run.try_lock())
+		if (!src->specify_run.test_and_set(std::memory_order_acquire))
 		{
-			src->specify_run.unlock();
+			src->specify_run.clear(std::memory_order_release);
 			double ret = get_api_real(L"/api/mem/used", L"used");
-			while (!src->specRamUsageLck.try_lock()) {}
+			while (!src->specRamUsageLck.test_and_set(std::memory_order_acquire)) {}
 			src->specRamUsageValue = ret;
-			src->specRamUsageLck.unlock();
+			src->specRamUsageLck.clear(std::memory_order_release);
 		}
 		else return;
 
 		//Avaiable IP's
-		chck_close(src->specIP.set_text(
+		chck_close(	src->specIP.set_text(
 			get_api_array(L"/api/net", L"avaiable_ips").c_str())
 		);
 

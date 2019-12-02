@@ -8,16 +8,16 @@ using namespace web;
 using namespace web::http;
 using namespace web::http::client;
 
-#define set_progress_bar(pb, val) if(src->specify_run.try_lock())\
+#define set_progress_bar(pb, val) if(!src->specify_run.test_and_set(std::memory_order_acquire))\
 {\
-	src->specify_run.unlock();\
+	src->specify_run.clear(std::memory_order_release);\
 	\
-	while(!src->GLUER(pb,Lc,k).try_lock()) {}\
+	while(!src->GLUER(pb,Lc,k).test_and_set(std::memory_order_acquire)) {}\
 	src->GLUER(pb,Valu,e) = val;\
-	src->GLUER(pb, Lc,k).unlock();\
+	src->GLUER(pb, Lc,k).clear(std::memory_order_release);\
 }else return;
 
-#define chck_close(x) if(src->specify_run.try_lock()){ src->specify_run.unlock(); x; } else return;
+#define chck_close(x) if(!src->specify_run.test_and_set(std::memory_order_acquire)){ src->specify_run.clear(std::memory_order_release); x; } else return;
 
 class SpecifyRefresher : public BasicRefresher
 {

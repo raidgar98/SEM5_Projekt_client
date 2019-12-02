@@ -152,16 +152,16 @@ MainComponent::MainComponent()
 
 		if (global_refresher.get() != nullptr)
 		{
-			while (!global_run.try_lock()) {}
+			while (!global_run.test_and_set(std::memory_order_acquire)) {}
 			global_refresher->join();
-			global_run.unlock();
+			global_run.clear(std::memory_order_release);
 			global_refresher.reset(nullptr);
 		}
 		if (specify_refresher.get() != nullptr)
 		{
-			while (!specify_run.try_lock()) {}
+			while (!specify_run.test_and_set(std::memory_order_acquire)) {}
 			specify_refresher->join();
-			specify_run.unlock();
+			specify_run.clear(std::memory_order_release);
 			specify_refresher.reset(nullptr);
 		}
 
@@ -201,16 +201,16 @@ MainComponent::MainComponent()
 
 		if (global_refresher.get() != nullptr)
 		{
-			while (!global_run.try_lock()) {}
+			while (!global_run.test_and_set(std::memory_order_acquire)) {}
 			global_refresher->join();
-			global_run.unlock();
+			global_run.clear(std::memory_order_release);
 			global_refresher.reset(nullptr);
 		}
 		if (specify_refresher.get() != nullptr)
 		{
-			while (!specify_run.try_lock()) {}
+			while (!specify_run.test_and_set(std::memory_order_acquire)) {}
 			specify_refresher->join();
-			specify_run.unlock();
+			specify_run.clear(std::memory_order_release);
 			specify_refresher.reset(nullptr);
 		}
 
@@ -289,17 +289,17 @@ MainComponent::~MainComponent()
 {
 	if (global_refresher.get() != nullptr)
 	{
-		while (!global_run.try_lock()) {}
+		while (!global_run.test_and_set(std::memory_order_acquire)) {}
 		global_refresher->join();
-		global_run.unlock();
+		global_run.clear(std::memory_order_release);
 		global_refresher.reset(nullptr);
 	}
 
 	if(specify_refresher.get() != nullptr)
 	{
-		while (!specify_run.try_lock()) {}
+		while (!specify_run.test_and_set(std::memory_order_acquire)) {}
 		specify_refresher->join();
-		specify_run.unlock();
+		specify_run.clear(std::memory_order_release);
 		specify_refresher.reset(nullptr);
 	}
 }
@@ -336,9 +336,9 @@ void MainComponent::update_specific(const std::wstring& src)
 {
 	if (specify_refresher.get() != nullptr)
 	{
-		while (!specify_run.try_lock()) {}
+		while (!specify_run.test_and_set(std::memory_order_acquire)) {}
 		specify_refresher->join();
-		specify_run.unlock();
+		specify_run.clear(std::memory_order_release);
 		specify_refresher.reset(nullptr);
 	}
 
